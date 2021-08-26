@@ -9,6 +9,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+const inputChanSize = 100
+
 // WatchDirFilterFunc return false if you want filter this dir
 type WatchDirFilterFunc func(path string, info os.FileInfo) bool
 type CallbackFunc func(event fsnotify.Event)
@@ -31,9 +33,7 @@ func New(
 	if err != nil {
 		log.Fatal(err)
 	}
-	size := 100
-	tc := NewTickerChannel(size, waitingPushTime)
-
+	tc := NewTickerChannel(inputChanSize, waitingPushTime)
 	fw := &FileWatcher{
 		watch:         watch,
 		tickerChannel: tc,
@@ -41,11 +41,11 @@ func New(
 		dirFilterFunc: dirFilterFunc,
 		callbackFunc:  callbackFunc,
 	}
-	go fw.Handler()
+	go fw.handler()
 	return fw
 }
 
-func (fw *FileWatcher) Handler() {
+func (fw *FileWatcher) handler() {
 	go func() {
 		fw.tickerChannel.Range(func(event interface{}) {
 			e := event.(fsnotify.Event)
@@ -81,19 +81,19 @@ func (fw *FileWatcher) watchEvent() {
 		select {
 		case ev := <-fw.watch.Events:
 			fw.tickerChannel.Store(ev)
-			if isEventBelongToType(ev, fsnotify.Create) {
+			if IsEventBelongToType(ev, fsnotify.Create) {
 				fw.onCreate(ev)
 			}
-			if isEventBelongToType(ev, fsnotify.Write) {
+			if IsEventBelongToType(ev, fsnotify.Write) {
 				fw.onWrite(ev)
 			}
-			if isEventBelongToType(ev, fsnotify.Remove) {
+			if IsEventBelongToType(ev, fsnotify.Remove) {
 				fw.onRemove(ev)
 			}
-			if isEventBelongToType(ev, fsnotify.Rename) {
+			if IsEventBelongToType(ev, fsnotify.Rename) {
 				fw.onRename(ev)
 			}
-			if isEventBelongToType(ev, fsnotify.Chmod) {
+			if IsEventBelongToType(ev, fsnotify.Chmod) {
 				fw.onChmod(ev)
 			}
 		case err := <-fw.watch.Errors:
@@ -150,8 +150,8 @@ func (fw *FileWatcher) onError(err error) {
 	log.Println("[ERROR] watcher on error: ", err)
 }
 
-// JudgeEventType 判断event是否属于typ类型
-func isEventBelongToType(event fsnotify.Event, typ fsnotify.Op) bool {
+// IsEventBelongToType 判断event是否属于typ类型
+func IsEventBelongToType(event fsnotify.Event, typ fsnotify.Op) bool {
 	return event.Op&typ == typ
 }
 

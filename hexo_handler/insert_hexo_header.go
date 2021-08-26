@@ -23,10 +23,10 @@ type InsertHexoHeaderStrategy struct {
 func (s *InsertHexoHeaderStrategy) BeforeRewrite(h *handler.BaseHandler) error { return nil }
 
 func (s *InsertHexoHeaderStrategy) AfterRewrite(h *handler.BaseHandler) error {
-	return s.InsertHexoHeader(h)
+	return s.insertHexoHeader(h)
 }
 
-func (s *InsertHexoHeaderStrategy) InsertHexoHeader(h *handler.BaseHandler) error {
+func (s *InsertHexoHeaderStrategy) insertHexoHeader(h *handler.BaseHandler) error {
 	for _, f := range h.Files {
 		fi, err := os.Open(f.NewPath)
 		if err != nil {
