@@ -1,152 +1,78 @@
-package utils
+package notify
 
 import (
 	"log"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
 
-var eventMap *EventMap
-
-type WatchEvents struct {
-	events []fsnotify.Event
-}
-
-type EventMap struct {
-	*sync.Mutex
-	m map[string]*WatchEvents
-}
-
-func NewEventMap() *EventMap {
-	return &EventMap{
-		Mutex: &sync.Mutex{},
-		m:     make(map[string]*WatchEvents, 5),
-	}
-}
-
-func (em *EventMap) Append(event fsnotify.Event) {
-	typeArray := []fsnotify.Op{
-		fsnotify.Create, fsnotify.Write, fsnotify.Remove, fsnotify.Rename, fsnotify.Chmod,
-	}
-	em.Lock()
-	defer em.Unlock()
-	// 一个event可能属于多种type
-	for _, typ := range typeArray {
-		if isEventBelongToType(event, typ) {
-			name := typ.String()
-			if _, ok := em.m[name]; !ok {
-				em.m[name] = new(WatchEvents)
-			}
-			em.m[name].events = append(em.m[name].events, event)
-		}
-	}
-}
-
-func (em *EventMap) GetFileList() []string {
-	var fileList []string
-	files := make(map[string]struct{}, 0)
-	em.Lock()
-	defer em.Unlock()
-	for _, events := range em.m {
-		for _, event := range events.events {
-			if _, exist := files[event.Name]; !exist {
-				files[event.Name] = struct{}{}
-				fileList = append(fileList, event.Name)
-			}
-		}
-	}
-	return fileList
-}
-
-func (em *EventMap) Clear() {
-	em.Lock()
-	defer em.Unlock()
-	em.m = map[string]*WatchEvents{}
-}
-
-func (em *EventMap) Copy() *EventMap {
-	ret := NewEventMap()
-	for k, v := range em.m {
-		ret.m[k] = v
-	}
-	return ret
-}
+// WatchDirFilterFunc return false if you want filter this dir
+type WatchDirFilterFunc func(path string, info os.FileInfo) bool
+type CallbackFunc func(event fsnotify.Event)
 
 type FileWatcher struct {
-	watch           *fsnotify.Watcher
-	eventInputChan  chan fsnotify.Event
-	eventOutputChan chan *EventMap // 消息整合
-
 	path            string
 	waitingPushTime time.Duration
-	callbackFunc    func(ch chan *EventMap)
+	callbackFunc    CallbackFunc
+	dirFilterFunc   WatchDirFilterFunc
+
+	watch         *fsnotify.Watcher
+	tickerChannel *TickerChannel
 }
 
-func NewNotifyFile(path string, waitingPushTime time.Duration, callbackFunc func(ch chan *EventMap)) *FileWatcher {
+func New(
+	path string, waitingPushTime time.Duration,
+	callbackFunc CallbackFunc, dirFilterFunc WatchDirFilterFunc,
+) *FileWatcher {
 	watch, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
 	}
+	size := 100
+	tc := NewTickerChannel(size, waitingPushTime)
 
 	fw := &FileWatcher{
-		watch:           watch,
-		eventInputChan:  make(chan fsnotify.Event, 100),
-		eventOutputChan: make(chan *EventMap, 1), // 在waitingPushTime内只发一条event
-
-		path:            path,
-		waitingPushTime: waitingPushTime,
-		callbackFunc:    callbackFunc,
+		watch:         watch,
+		tickerChannel: tc,
+		path:          path,
+		dirFilterFunc: dirFilterFunc,
+		callbackFunc:  callbackFunc,
 	}
-	go fw.callback()
+	go fw.Handler()
 	return fw
 }
 
-func (fw *FileWatcher) callback() {
-	fw.callbackFunc(fw.eventOutputChan)
-}
-
-func (fw *FileWatcher) pushEventMapToOutputChan() {
-	ticker := time.NewTicker(fw.waitingPushTime)
+func (fw *FileWatcher) Handler() {
 	go func() {
-		for range ticker.C {
-			e := eventMap.Copy()
-			fw.eventOutputChan <- e
-			eventMap.Clear()
-		}
+		fw.tickerChannel.Range(func(event interface{}) {
+			e := event.(fsnotify.Event)
+			fw.callbackFunc(e)
+		})
 	}()
-}
-
-func (fw *FileWatcher) collectEventToMap() {
-	for {
-		select {
-		case event := <-fw.eventInputChan:
-			eventMap.Append(event)
-		}
-	}
 }
 
 func (fw *FileWatcher) WatchDir() {
 	filepath.Walk(fw.path, func(path string, info os.FileInfo, err error) error {
+		if fw.dirFilterFunc != nil && !fw.dirFilterFunc(path, info) {
+			return nil
+		}
 		// 因为目录下文件也在监控范围内,不需要加文件
 		if info.IsDir() {
-			path, err := filepath.Abs(path)
+			absPath, err := filepath.Abs(path)
 			if err != nil {
 				return err
 			}
-			err = fw.watch.Add(path)
+			err = fw.watch.Add(absPath)
 			if err != nil {
 				return err
 			}
-			log.Println("[INFO] add watch: ", path)
+			log.Println("[INFO] add watch: ", absPath)
 		}
 		return nil
 	})
-	go fw.pushEventMapToOutputChan()
-	go fw.collectEventToMap()
 	go fw.watchEvent()
 }
 
@@ -154,7 +80,7 @@ func (fw *FileWatcher) watchEvent() {
 	for {
 		select {
 		case ev := <-fw.watch.Events:
-			fw.eventInputChan <- ev
+			fw.tickerChannel.Store(ev)
 			if isEventBelongToType(ev, fsnotify.Create) {
 				fw.onCreate(ev)
 			}
@@ -229,6 +155,6 @@ func isEventBelongToType(event fsnotify.Event, typ fsnotify.Op) bool {
 	return event.Op&typ == typ
 }
 
-func init() {
-	eventMap = NewEventMap()
+func GetFilePathFromEvent(event fsnotify.Event) string {
+	return event.Name
 }

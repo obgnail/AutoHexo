@@ -1,6 +1,7 @@
-package utils
+package notify
 
 import (
+	"github.com/fsnotify/fsnotify"
 	"testing"
 	"time"
 )
@@ -8,13 +9,10 @@ import (
 func TestFileNotify(t *testing.T) {
 	waitingTime := 10 * time.Second
 	path := "/Users/heyingliang/Dropbox/root/md"
-	f := func(ch chan *EventMap) {
-		for em := range ch {
-			files := em.GetFileList()
-			t.Log(time.Now(), files)
-		}
+	f := func(event fsnotify.Event) {
+		t.Log(time.Now(), event)
 	}
-	watcher := NewNotifyFile(path, waitingTime, f)
+	watcher := New(path, waitingTime, f, nil)
 	watcher.WatchDir()
 	select {}
 }

@@ -28,8 +28,8 @@ func TestInsertContentIntoFileHead(t *testing.T) {
 }
 
 func TestBuildMdFile(t *testing.T) {
-	filePath := "D:\\tmp\\root\\md3\\InAction\\groupcache\\网站__groupcache全方位解读.md"
-	if err := BuildMdFile(filePath); err != nil {
-		t.Fatal(err)
-	}
+	//filePath := "D:\\tmp\\root\\md3\\InAction\\groupcache\\网站__groupcache全方位解读.md"
+	//if err := BuildMdFile(filePath); err != nil {
+	//	t.Fatal(err)
+	//}
 }
