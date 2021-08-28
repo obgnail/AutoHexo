@@ -1,8 +1,9 @@
-package auto_hexo
+package notify_hexo
 
 import (
 	"runtime"
 	"testing"
+	"time"
 )
 
 var (
@@ -10,13 +11,13 @@ var (
 	blogMarkdownRootDir   string
 	blogResourceRootDir   string
 	hexoCmdPath           string
+	waitingWindows        time.Duration
 )
 
-func TestAutoHexo(t *testing.T) {
-	autoHexo := New(originMarkdownRootDir, blogMarkdownRootDir, blogResourceRootDir,hexoCmdPath)
-	if err := autoHexo.CreateBlog(originMarkdownRootDir); err != nil {
-		t.Log("[WARN] hexo new err", err)
-	}
+func TestNotifyHexo(t *testing.T) {
+	notifyHexo := New(originMarkdownRootDir, blogMarkdownRootDir, blogResourceRootDir, hexoCmdPath, waitingWindows)
+	notifyHexo.Run()
+	select {}
 }
 
 func init() {
@@ -30,4 +31,5 @@ func init() {
 		blogMarkdownRootDir = "/Users/heyingliang/myTemp/blog/source/_posts"
 		blogResourceRootDir = "/Users/heyingliang/myTemp/blog/source/images"
 	}
+	waitingWindows = 10 * time.Second
 }

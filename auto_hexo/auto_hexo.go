@@ -3,118 +3,100 @@ package auto_hexo
 import (
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/fsnotify/fsnotify"
-	"github.com/obgnail/AutoHexo/hexo_handler"
-	"github.com/obgnail/AutoHexo/utils/notify"
+	"github.com/obgnail/AutoHexo/auto_hexo/strategy"
+	handlerConfig "github.com/obgnail/MarkdownResouceCollecter/config"
+	"github.com/obgnail/MarkdownResouceCollecter/handler"
 )
 
 const (
-	MarkdownFileSuffix     = ".md"
-	LocalPictureUseAbsPath = true
-
-	TempFileSuffix    = "~.md"
-	MarkdownAssetsDir = "assets"
-	PythonCacheDir    = "__pycache__"
+	markdownFileSuffix     = ".md"
+	localPictureUseAbsPath = true
 )
 
 type AutoHexo struct {
-	originMarkdownRootDir string        // 监控的md目录
-	blogMarkdownRootDir   string        // 用于生成blog的目录
-	blogResourceRootDir   string        // blog的资源目录
-	waitingWindows        time.Duration // 等待窗口,合并若干时间内的消息
+	OriginMarkdownRootDir string // 监控的md目录
+	BlogMarkdownRootDir   string // 用于生成blog的目录
+	BlogResourceRootDir   string // blog的资源目录
+	hexoCommandPath       string // hexo命令的位置
 }
 
-func New(
-	originMarkdownRootDir, blogMarkdownRootDir, blogResourceRootDir string,
-	waitingWindows time.Duration,
-) *AutoHexo {
+func New(originMarkdownRootDir, blogMarkdownRootDir, blogResourceRootDir, hexoCommandPath string) *AutoHexo {
 	return &AutoHexo{
-		originMarkdownRootDir: originMarkdownRootDir,
-		blogMarkdownRootDir:   blogMarkdownRootDir,
-		blogResourceRootDir:   blogResourceRootDir,
-		waitingWindows:        waitingWindows,
+		OriginMarkdownRootDir: originMarkdownRootDir,
+		BlogMarkdownRootDir:   blogMarkdownRootDir,
+		BlogResourceRootDir:   blogResourceRootDir,
+		hexoCommandPath:       hexoCommandPath,
 	}
 }
 
-func (ah *AutoHexo) newBlog(changedFilePath string) error {
-	h := hexo_handler.New(
-		ah.originMarkdownRootDir, ah.blogResourceRootDir, ah.blogMarkdownRootDir,
-		MarkdownFileSuffix, LocalPictureUseAbsPath, changedFilePath,
+func (ah *AutoHexo) DeleteBlog(deleteFilePath string) error {
+	if err := os.Remove(deleteFilePath); err != nil {
+		return err
+	}
+	log.Println("[INFO] file remove:", deleteFilePath)
+	if err := ah.AutoDeploy(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ah *AutoHexo) DeleteAllBlogs() error {
+	return ah.DeleteBlog(ah.BlogMarkdownRootDir)
+}
+
+func (ah *AutoHexo) CreateBlog(changedFilePath string) error {
+	h := ah.newHandler(
+		changedFilePath, ah.OriginMarkdownRootDir, ah.BlogResourceRootDir, ah.BlogMarkdownRootDir,
+		markdownFileSuffix, localPictureUseAbsPath,
 	)
-	return h.Run()
-}
-
-// 删除同步时产生的`~.md`临时文件
-func (ah *AutoHexo) isTempFile(event fsnotify.Event) bool {
-	filePath := notify.GetFilePathFromEvent(event)
-	return strings.HasSuffix(filePath, TempFileSuffix)
-}
-
-func (ah *AutoHexo) removeBlogFile(event fsnotify.Event) {
-	removeFilePath := notify.GetFilePathFromEvent(event)
-	blogFilePath := strings.Replace(removeFilePath, ah.originMarkdownRootDir, ah.blogMarkdownRootDir, 1)
-	if err := os.Remove(blogFilePath); err != nil {
-		log.Println("[WARN] file remove Error:", blogFilePath)
-	} else {
-		log.Print("[INFO] file remove:", blogFilePath)
+	if err := h.Run(); err != nil {
+		return err
 	}
+	//if err := ah.AutoDeploy(); err != nil {
+	//	return err
+	//}
+	return nil
 }
 
-func (ah *AutoHexo) onFileCreate(event fsnotify.Event) {
-	changedFilePath := notify.GetFilePathFromEvent(event)
-	if err := ah.newBlog(changedFilePath); err != nil {
-		log.Println("[WARN] hexo new err", err)
-	}
+func (ah *AutoHexo) HexoGenerate() error {
+	log.Println("[INFO] hexo Generate...")
+	cmd := NewHexoCommand(ah.hexoCommandPath)
+	return cmd.ExecuteHexoGenerate()
 }
 
-func (ah *AutoHexo) onFileWrite(event fsnotify.Event) {
-	ah.onFileCreate(event)
+func (ah *AutoHexo) HexoDeploy() error {
+	log.Println("[INFO] hexo Deploying...")
+	cmd := NewHexoCommand(ah.hexoCommandPath)
+	return cmd.ExecuteHexoDeploy()
 }
 
-func (ah *AutoHexo) onFileRemove(event fsnotify.Event) {
-	ah.removeBlogFile(event)
+func (ah *AutoHexo) AutoDeploy() error {
+	log.Println("[INFO] hexo AutoDeploying...")
+	if err := ah.HexoGenerate(); err != nil {
+		return err
+	}
+	//if err := ah.HexoDeploy(); err != nil {
+	//	return err
+	//}
+	log.Println("[INFO] hexo AutoDeployed")
+	return nil
 }
 
-func (ah *AutoHexo) onFileRename(event fsnotify.Event) {
-	ah.removeBlogFile(event)
-	ah.onFileCreate(event)
-}
-
-func (ah *AutoHexo) onFileChmod(event fsnotify.Event) {}
-
-func (ah *AutoHexo) filterWatchDir(path string, info os.FileInfo) bool {
-	basePath := filepath.Base(path)
-	return !(basePath == MarkdownAssetsDir || basePath == PythonCacheDir)
-}
-
-// 根据不同的event type执行不同的hexo操作
-func (ah *AutoHexo) authHexo(event fsnotify.Event) {
-	if ah.isTempFile(event) {
-		return
-	}
-	if notify.IsEventBelongToType(event, fsnotify.Create) {
-		ah.onFileCreate(event)
-	}
-	if notify.IsEventBelongToType(event, fsnotify.Write) {
-		ah.onFileWrite(event)
-	}
-	if notify.IsEventBelongToType(event, fsnotify.Remove) {
-		ah.onFileRemove(event)
-	}
-	if notify.IsEventBelongToType(event, fsnotify.Rename) {
-		ah.onFileRename(event)
-	}
-	if notify.IsEventBelongToType(event, fsnotify.Chmod) {
-		ah.onFileChmod(event)
-	}
-}
-
-func (ah *AutoHexo) Run() {
-	watcher := notify.New(ah.originMarkdownRootDir, ah.waitingWindows, ah.authHexo, ah.filterWatchDir)
-	watcher.WatchDir()
-	select {}
+func (ah *AutoHexo) newHandler(
+	changedFilePath, originMarkdownRootDir, blogResourceRootDir, blogMarkdownRootDir string,
+	markdownFileSuffix string, localPictureUseAbsPath bool,
+) *handler.BaseHandler {
+	blogMarkdownPath := strings.Replace(changedFilePath, originMarkdownRootDir, blogMarkdownRootDir, 1)
+	cfg := handlerConfig.InitConfig(
+		changedFilePath, blogResourceRootDir, blogMarkdownPath,
+		nil, markdownFileSuffix, localPictureUseAbsPath,
+	)
+	h := handler.New(cfg)
+	h.AppendStrategy(&handler.CollectNetWorkPictureStrategy{})
+	h.AppendStrategy(&handler.CollectLocalPictureStrategy{})
+	h.AppendStrategy(&strategy.InsertHexoHeaderStrategy{BlogMarkdownRootDir: blogMarkdownRootDir})
+	h.AppendStrategy(&strategy.FixHexoPicturePathStrategy{})
+	return h
 }

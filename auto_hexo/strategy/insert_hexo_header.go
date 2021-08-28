@@ -1,4 +1,4 @@
-package hexo_handler
+package strategy
 
 import (
 	"bytes"
@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/obgnail/AutoHexo/utils"
@@ -17,7 +16,7 @@ const MarkdownFileHeaderTemplate = "---\ntitle: %s\ndate: %s\ntags: %s\n---\n"
 
 // InsertHexoHeaderStrategy 插入hexo需要的header
 type InsertHexoHeaderStrategy struct {
-	blogMarkdownRootDir string
+	BlogMarkdownRootDir string
 }
 
 func (s *InsertHexoHeaderStrategy) BeforeRewrite(h *handler.BaseHandler) error { return nil }
@@ -32,12 +31,12 @@ func (s *InsertHexoHeaderStrategy) insertHexoHeader(h *handler.BaseHandler) erro
 		if err != nil {
 			return err
 		}
-		title, createDate := s.getFileInfo(fi)
+		title, lastWriteTime := s.getFileInfo(f.OriginPath)
 		tag, err := s.getFileTag(f.NewPath)
 		if err != nil {
 			return err
 		}
-		header := s.buildHeaderContent(title, createDate, tag)
+		header := s.buildHeaderContent(title, lastWriteTime, tag)
 		if err := s.insertHeadIntoFile(fi, []byte(header)); err != nil {
 			return err
 		}
@@ -64,8 +63,8 @@ func (s *InsertHexoHeaderStrategy) insertHeadIntoFile(f *os.File, header []byte)
 	return nil
 }
 
-func (s *InsertHexoHeaderStrategy) getFileInfo(f *os.File) (title, createDate string) {
-	fileFullPath, _, fileNameWithoutSuffix := utils.GetFilePath(f)
+func (s *InsertHexoHeaderStrategy) getFileInfo(filePath string) (title, LastWriteTime string) {
+	fileFullPath, _, fileNameWithoutSuffix := utils.GetFilePath(filePath)
 
 	// 除去文件名的`书籍__`前缀
 	prefixAndFileName := strings.Split(fileNameWithoutSuffix, "__")
@@ -74,23 +73,21 @@ func (s *InsertHexoHeaderStrategy) getFileInfo(f *os.File) (title, createDate st
 	} else {
 		title = fileNameWithoutSuffix
 	}
-	createDate = utils.GetFileCreateTime(fileFullPath)
+	LastWriteTime = utils.GetFileLastWriteTime(fileFullPath)
 	return
 }
 
 // fileFullPath:        /Users/heyingliang/myTemp/blog/source/_posts/Binlog/MySQL Binlog 介绍.md
-// blogMarkdownRootDir: /Users/heyingliang/myTemp/blog/source/_posts
+// BlogMarkdownRootDir: /Users/heyingliang/myTemp/blog/source/_posts
 // want: Binlog
 func (s *InsertHexoHeaderStrategy) getFileTag(fileFullPath string) (tag string, err error) {
-	regexpString := filepath.Join(s.blogMarkdownRootDir, `(.+?)`) + string(os.PathSeparator)
-	re, err := regexp.Compile(regexpString)
+	path, err := filepath.Rel(s.BlogMarkdownRootDir, fileFullPath)
 	if err != nil {
 		return
 	}
-	matches := re.FindAllStringSubmatch(fileFullPath, -1)
-	if matches == nil {
-		return "", fmt.Errorf("[Error] get file tag fail : %s", fileFullPath)
+	ss := strings.Split(path, string(os.PathSeparator))
+	if len(ss) >= 2 {
+		tag = ss[0]
 	}
-	tag = matches[0][1]
 	return
 }
