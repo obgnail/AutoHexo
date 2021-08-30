@@ -12,7 +12,8 @@ import (
 	"github.com/obgnail/MarkdownResouceCollecter/handler"
 )
 
-const MarkdownFileHeaderTemplate = "---\ntitle: %s\ndate: %s\ntags: %s\n---\n"
+const useComments = false
+const MarkdownFileHeaderTemplate = "---\ntitle: %s\ndate: %s\ntags: %s\ncomments: %t\n---\n"
 
 // InsertHexoHeaderStrategy 插入hexo需要的header
 type InsertHexoHeaderStrategy struct {
@@ -46,7 +47,7 @@ func (s *InsertHexoHeaderStrategy) insertHexoHeader(h *handler.BaseHandler) erro
 }
 
 func (s *InsertHexoHeaderStrategy) buildHeaderContent(title, date, tag string) string {
-	return fmt.Sprintf(MarkdownFileHeaderTemplate, title, date, tag)
+	return fmt.Sprintf(MarkdownFileHeaderTemplate, title, date, tag, useComments)
 }
 
 func (s *InsertHexoHeaderStrategy) insertHeadIntoFile(f *os.File, header []byte) error {

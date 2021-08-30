@@ -54,9 +54,9 @@ func (ah *AutoHexo) CreateBlog(changedFilePath string) error {
 	if err := h.Run(); err != nil {
 		return err
 	}
-	//if err := ah.AutoDeploy(); err != nil {
-	//	return err
-	//}
+	if err := ah.AutoDeploy(); err != nil {
+		return err
+	}
 	return nil
 }
 
