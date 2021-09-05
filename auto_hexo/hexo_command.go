@@ -20,10 +20,7 @@ func NewHexoCommand(hexoCmdPath string) *HexoCommand {
 
 func (hc *HexoCommand) ExecuteCmd(cmd string) error {
 	cdCmd := exec.Command(hc.hexoCmdPath, cmd)
-	if _, err := cdCmd.Output(); err != nil {
-		return err
-	}
-	return nil
+	return cdCmd.Run()
 }
 
 func (hc *HexoCommand) ExecuteHexoServer() error {

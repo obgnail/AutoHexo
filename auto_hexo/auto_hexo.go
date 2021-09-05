@@ -77,9 +77,9 @@ func (ah *AutoHexo) AutoDeploy() error {
 	if err := ah.HexoGenerate(); err != nil {
 		return err
 	}
-	//if err := ah.HexoDeploy(); err != nil {
-	//	return err
-	//}
+	if err := ah.HexoDeploy(); err != nil {
+		return err
+	}
 	log.Println("[INFO] hexo AutoDeployed")
 	return nil
 }
