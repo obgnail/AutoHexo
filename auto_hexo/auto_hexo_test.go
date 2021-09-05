@@ -21,7 +21,7 @@ func TestAutoHexo(t *testing.T) {
 
 func init() {
 	if runtime.GOOS == "windows" {
-		originMarkdownRootDir = `C:\Users\12516\Dropbox\root\md\Learning\_Messing`
+		originMarkdownRootDir = `C:\Users\12516\Dropbox\root\md\Learning`
 		blogMarkdownRootDir = `D:\app\blog\source\_posts`
 		blogResourceRootDir = `D:\app\blog\source\images`
 		hexoCmdPath = `C:\Users\12516\AppData\Roaming\npm\hexo`
