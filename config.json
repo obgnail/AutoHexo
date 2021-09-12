@@ -1,0 +1,11 @@
+{
+  "auto_type": "manual",
+  "origin_markdown_root_dir": "C:\\Users\\12516\\Dropbox\\root\\md\\Learning",
+  "blog_markdown_root_dir": "D:\\app\\blog\\source\\_posts",
+  "blog_resource_root_dir": "D:\\app\\blog\\source\\images",
+  "hexo_cmd_path": "C:\\Users\\12516\\AppData\\Roaming\\npm\\hexo",
+
+  "waiting_windows_minute": 10,
+
+  "ticker_time_hour": 24
+}

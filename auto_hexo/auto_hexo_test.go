@@ -14,7 +14,7 @@ var (
 
 func TestAutoHexo(t *testing.T) {
 	autoHexo := New(originMarkdownRootDir, blogMarkdownRootDir, blogResourceRootDir,hexoCmdPath)
-	if err := autoHexo.CreateBlog(originMarkdownRootDir); err != nil {
+	if err := autoHexo.Run(originMarkdownRootDir); err != nil {
 		t.Log("[WARN] hexo new err", err)
 	}
 }

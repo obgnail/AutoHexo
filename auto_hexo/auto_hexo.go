@@ -39,7 +39,7 @@ func (ah *AutoHexo) DeleteBlog(deleteFilePath string) error {
 		return err
 	}
 	log.Println("[INFO] file remove:", deleteFilePath)
-	if err := ah.AutoDeploy(); err != nil {
+	if err := ah.HexoAutoDeploy(); err != nil {
 		return err
 	}
 	return nil
@@ -49,7 +49,7 @@ func (ah *AutoHexo) DeleteAllBlogs() error {
 	return ah.DeleteBlog(ah.BlogMarkdownRootDir)
 }
 
-func (ah *AutoHexo) CreateBlog(changedFilePath string) error {
+func (ah *AutoHexo) Run(changedFilePath string) error {
 	h := ah.newHandler(
 		changedFilePath, ah.OriginMarkdownRootDir, ah.BlogResourceRootDir, ah.BlogMarkdownRootDir,
 		markdownFileSuffix, localPictureUseAbsPath,
@@ -57,10 +57,16 @@ func (ah *AutoHexo) CreateBlog(changedFilePath string) error {
 	if err := h.Run(); err != nil {
 		return err
 	}
-	if err := ah.AutoDeploy(); err != nil {
+	if err := ah.HexoAutoDeploy(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (ah *AutoHexo) AutoDeploy() {
+	if err := ah.Run(ah.OriginMarkdownRootDir); err != nil {
+		log.Println("[Error]: deploy blogs error:", err)
+	}
 }
 
 func (ah *AutoHexo) HexoGenerate() error {
@@ -73,7 +79,12 @@ func (ah *AutoHexo) HexoDeploy() error {
 	return ah.hexoCommand.ExecuteHexoDeploy()
 }
 
-func (ah *AutoHexo) AutoDeploy() error {
+func (ah *AutoHexo) HexoClean() error {
+	log.Println("[INFO] hexo Cleaning...")
+	return ah.hexoCommand.ExecuteHexoClean()
+}
+
+func (ah *AutoHexo) HexoAutoDeploy() error {
 	log.Println("[INFO] hexo AutoDeploying...")
 	if err := ah.HexoGenerate(); err != nil {
 		return err

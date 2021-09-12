@@ -1,7 +1,6 @@
 package notify_hexo
 
 import (
-	"github.com/obgnail/AutoHexo/auto_hexo"
 	"log"
 	"os"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/obgnail/AutoHexo/auto_hexo"
 	"github.com/obgnail/AutoHexo/utils/notify"
 )
 
@@ -22,7 +22,7 @@ const (
 )
 
 type NotifyHexo struct {
-	*auto_hexo.AutoHexo
+	autoHexo       *auto_hexo.AutoHexo
 	waitingWindows time.Duration // 等待窗口,合并若干时间内的消息
 }
 
@@ -31,11 +31,11 @@ func New(
 	waitingWindows time.Duration,
 ) *NotifyHexo {
 	ah := auto_hexo.New(originMarkdownRootDir, blogMarkdownRootDir, blogResourceRootDir, hexoCmdPath)
-	return &NotifyHexo{AutoHexo: ah, waitingWindows: waitingWindows}
+	return &NotifyHexo{autoHexo: ah, waitingWindows: waitingWindows}
 }
 
 func (nh *NotifyHexo) newBlog(changedFilePath string) error {
-	return nh.CreateBlog(changedFilePath)
+	return nh.autoHexo.Run(changedFilePath)
 }
 
 // 删除同步时产生的`filename~.md`(unix)和`.~filename.md`(windows)临时文件
@@ -53,8 +53,8 @@ func (nh *NotifyHexo) isTempFile(event fsnotify.Event) (ret bool) {
 
 func (nh *NotifyHexo) removeBlogFile(event fsnotify.Event) {
 	removeFilePath := notify.GetFilePathFromEvent(event)
-	blogFilePath := strings.Replace(removeFilePath, nh.OriginMarkdownRootDir, nh.BlogMarkdownRootDir, 1)
-	if err := nh.DeleteBlog(blogFilePath); err != nil {
+	blogFilePath := strings.Replace(removeFilePath, nh.autoHexo.OriginMarkdownRootDir, nh.autoHexo.BlogMarkdownRootDir, 1)
+	if err := nh.autoHexo.DeleteBlog(blogFilePath); err != nil {
 		log.Println("[WARN] file remove Error:", blogFilePath)
 	}
 }
@@ -86,8 +86,8 @@ func (nh *NotifyHexo) filterWatchDir(path string, info os.FileInfo) bool {
 	return !(basePath == markdownAssetsDir || basePath == pythonCacheDir || basePath == macDSFile)
 }
 
-// AuthHexo 根据不同的event type执行不同的hexo操作
-func (nh *NotifyHexo) AuthHexo(event fsnotify.Event) {
+// execHexo 根据不同的event type执行不同的hexo操作
+func (nh *NotifyHexo) execHexo(event fsnotify.Event) {
 	if nh.isTempFile(event) {
 		return
 	}
@@ -108,8 +108,8 @@ func (nh *NotifyHexo) AuthHexo(event fsnotify.Event) {
 	}
 }
 
-func (nh *NotifyHexo) Run() {
-	watcher := notify.New(nh.OriginMarkdownRootDir, nh.waitingWindows, nh.AuthHexo, nh.filterWatchDir)
+func (nh *NotifyHexo) AutoDeploy() {
+	watcher := notify.New(nh.autoHexo.OriginMarkdownRootDir, nh.waitingWindows, nh.execHexo, nh.filterWatchDir)
 	watcher.WatchDir()
 	select {}
 }

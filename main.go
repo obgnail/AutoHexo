@@ -1,17 +1,43 @@
 package main
 
 import (
-	"github.com/obgnail/AutoHexo/notify_hexo"
+	"log"
 	"time"
+
+	"github.com/obgnail/AutoHexo/auto_hexo"
+	"github.com/obgnail/AutoHexo/notify_hexo"
+	"github.com/obgnail/AutoHexo/ticker_hexo"
 )
 
 func main() {
-	originMarkdownRootDir := `C:\Users\12516\Dropbox\root\md\Learning`
-	blogMarkdownRootDir := `D:\app\blog\source\_posts`
-	blogResourceRootDir := `D:\app\blog\source\images`
-	hexoCmdPath := `C:\Users\12516\AppData\Roaming\npm\hexo`
-	waitingWindows := 10 * time.Second
-
-	autoHexo := notify_hexo.New(originMarkdownRootDir, blogMarkdownRootDir, blogResourceRootDir, hexoCmdPath, waitingWindows)
-	autoHexo.Run()
+	config := ReadConfig("config.json")
+	var hexoDeployer HexoDeployer
+	switch config.AutoType {
+	case "manual":
+		hexoDeployer = auto_hexo.New(
+			config.OriginMarkdownRootDir,
+			config.BlogMarkdownRootDir,
+			config.BlogResourceRootDir,
+			config.HexoCmdPath,
+		)
+	case "notify":
+		hexoDeployer = notify_hexo.New(
+			config.OriginMarkdownRootDir,
+			config.BlogMarkdownRootDir,
+			config.BlogResourceRootDir,
+			config.HexoCmdPath,
+			time.Duration(config.WaitingWindows)*time.Minute,
+		)
+	case "ticker":
+		hexoDeployer = ticker_hexo.New(
+			config.OriginMarkdownRootDir,
+			config.BlogMarkdownRootDir,
+			config.BlogResourceRootDir,
+			config.HexoCmdPath,
+			time.Duration(config.TickerTime)*time.Hour,
+		)
+	default:
+		log.Fatalln("no such hexo deployer")
+	}
+	hexoDeployer.AutoDeploy()
 }

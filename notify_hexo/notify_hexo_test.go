@@ -16,7 +16,7 @@ var (
 
 func TestNotifyHexo(t *testing.T) {
 	notifyHexo := New(originMarkdownRootDir, blogMarkdownRootDir, blogResourceRootDir, hexoCmdPath, waitingWindows)
-	notifyHexo.Run()
+	notifyHexo.AutoDeploy()
 	select {}
 }
 

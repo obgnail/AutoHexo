@@ -9,6 +9,7 @@ const (
 	cmdHexoGenerate = "g"
 	cmdHexoDeploy   = "d"
 	cmdHexoServer   = "s"
+	cmdHexoClean    = "clean"
 )
 
 type HexoCommand struct {
@@ -29,6 +30,10 @@ func (hc *HexoCommand) ExecuteCmd(cmd string) error {
 	}
 	fmt.Printf("%s", out)
 	return nil
+}
+
+func (hc *HexoCommand) ExecuteHexoClean() error {
+	return hc.ExecuteCmd(cmdHexoClean)
 }
 
 func (hc *HexoCommand) ExecuteHexoServer() error {
