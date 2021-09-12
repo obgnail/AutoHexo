@@ -20,6 +20,8 @@ type AutoHexo struct {
 	BlogMarkdownRootDir   string // 用于生成blog的目录
 	BlogResourceRootDir   string // blog的资源目录
 	hexoCommandPath       string // hexo命令的位置
+
+	hexoCommand *HexoCommand
 }
 
 func New(originMarkdownRootDir, blogMarkdownRootDir, blogResourceRootDir, hexoCommandPath string) *AutoHexo {
@@ -28,6 +30,7 @@ func New(originMarkdownRootDir, blogMarkdownRootDir, blogResourceRootDir, hexoCo
 		BlogMarkdownRootDir:   blogMarkdownRootDir,
 		BlogResourceRootDir:   blogResourceRootDir,
 		hexoCommandPath:       hexoCommandPath,
+		hexoCommand:           NewHexoCommand(hexoCommandPath, blogResourceRootDir),
 	}
 }
 
@@ -62,14 +65,12 @@ func (ah *AutoHexo) CreateBlog(changedFilePath string) error {
 
 func (ah *AutoHexo) HexoGenerate() error {
 	log.Println("[INFO] hexo Generate...")
-	cmd := NewHexoCommand(ah.hexoCommandPath)
-	return cmd.ExecuteHexoGenerate()
+	return ah.hexoCommand.ExecuteHexoGenerate()
 }
 
 func (ah *AutoHexo) HexoDeploy() error {
 	log.Println("[INFO] hexo Deploying...")
-	cmd := NewHexoCommand(ah.hexoCommandPath)
-	return cmd.ExecuteHexoDeploy()
+	return ah.hexoCommand.ExecuteHexoDeploy()
 }
 
 func (ah *AutoHexo) AutoDeploy() error {

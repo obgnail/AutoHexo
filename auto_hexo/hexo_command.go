@@ -1,6 +1,7 @@
 package auto_hexo
 
 import (
+	"fmt"
 	"os/exec"
 )
 
@@ -12,15 +13,22 @@ const (
 
 type HexoCommand struct {
 	hexoCmdPath string
+	execDir     string
 }
 
-func NewHexoCommand(hexoCmdPath string) *HexoCommand {
-	return &HexoCommand{hexoCmdPath: hexoCmdPath}
+func NewHexoCommand(hexoCmdPath, execDir string) *HexoCommand {
+	return &HexoCommand{hexoCmdPath: hexoCmdPath, execDir: execDir}
 }
 
 func (hc *HexoCommand) ExecuteCmd(cmd string) error {
-	cdCmd := exec.Command(hc.hexoCmdPath, cmd)
-	return cdCmd.Run()
+	execCmd := exec.Command(hc.hexoCmdPath, cmd)
+	execCmd.Dir = hc.execDir
+	out, err := execCmd.Output()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s", out)
+	return nil
 }
 
 func (hc *HexoCommand) ExecuteHexoServer() error {
